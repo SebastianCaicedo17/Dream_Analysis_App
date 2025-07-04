@@ -1,6 +1,7 @@
 from groq import Groq
 from mistralai import Mistral
 from dotenv import load_dotenv
+from pathlib import Path
 from io import BytesIO
 from PIL import Image
 import requests
@@ -8,24 +9,36 @@ import os
 import json
 
 load_dotenv()
-filename = "Audio.m4a"
 
 def read_file(text_file_path):
     with open (text_file_path, "r") as file:
         return file.read()
 
-def audio_to_text(filename, language='fr'):
+def audio_to_text(audio_input, language='fr'):
     client = Groq(api_key=os.environ["GROQ_API_KEY"])
-    with open(filename, "rb") as file:
-
+    if isinstance(audio_input, (str, Path)):
+        with open(audio_input, "rb") as file:
+            transcription = client.audio.transcriptions.create(
+                file=file,
+                model="whisper-large-v3-turbo",
+                prompt="Extrait le texte de l'audio le plus précis possible",
+                response_format="verbose_json",
+                timestamp_granularities=["word", "segment"],
+                language=language,
+                temperature=0.0
+            )
+    else:
+        # Cas 2 : on suppose que c’est un fichier-like object (UploadedFile)
+        # On réinitialise le curseur au début si jamais le fichier a été lu partiellement
+        audio_input.seek(0)
         transcription = client.audio.transcriptions.create(
-            file=file, # Required audio file
-            model="whisper-large-v3-turbo", # Required model to use for transcription
-            prompt="Extrait le text de l'audio le plus précis possible",  # Optional
-            response_format="verbose_json",  # Optional
-            timestamp_granularities = ["word", "segment"], # Optional (must set response_format to "json" to use and can specify "word", "segment" (default), or both)
-            language=language,  # Optional
-            temperature=0.0  # Optional
+            file=audio_input,
+            model="whisper-large-v3-turbo",
+            prompt="Extrait le texte de l'audio le plus précis possible",
+            response_format="verbose_json",
+            timestamp_granularities=["word", "segment"],
+            language=language,
+            temperature=0.0
         )
         return transcription.text
 
@@ -61,16 +74,16 @@ def ia_image(text):
     if (r.ok):
         # r.content contains the bytes of the returned image
         image = Image.open(BytesIO(r.content))
-        image.save("image_generée.png")
+        return image
     else: 
         return r.raise_for_status()
 
 
-if __name__ == "__main__":
-    filename = "../Audio.m4a"
-    reve = audio_to_text(filename, language='fr')
-    analysis = reve_analysis(reve)
-    print(reve)
-    print("Voici l'analyse")
-    print(analysis)
-    image = ia_image(reve)
+# if __name__ == "__main__":
+#     audio_path = "../Audio.m4a"
+#     reve = audio_to_text(audio_path, language='fr')
+#     analysis = reve_analysis(reve)
+#     print(reve)
+#     print("Voici l'analyse")
+#     print(analysis)
+#     image = ia_image(reve)

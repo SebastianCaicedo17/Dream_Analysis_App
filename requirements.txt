@@ -2,6 +2,6 @@ dotenv
 groq
 mistralai
 request
-PIL
+pillow
 plotly
 streamlit
